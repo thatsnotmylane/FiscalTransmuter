@@ -7,6 +7,7 @@ namespace FiscalTransmuter;
 public class TransmutationArrangement
 {
     public string? dataDirectory { get; set; }
+    public string? outputDirectory { get; set; }
 }
 
 public class HomoginizedLine
