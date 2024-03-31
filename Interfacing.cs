@@ -1,5 +1,6 @@
 ﻿using Microsoft.VisualBasic.FileIO;
 using Newtonsoft.Json;
+using System.Globalization;
 using System.Reflection.PortableExecutable;
 
 namespace FiscalTransmuter;
@@ -13,10 +14,11 @@ public class TransmutationArrangement
 public class HomoginizedLine
 {
     public string? YearMonth { get; set; }
+    public DateTime? TransactionDate { get; set; }
     public string? Description { get; set; }
     public string? Category { get; set; }
     public double Amount { get; set; }
-    
+    public string? Source { get; set; }
 }
 
 
@@ -82,12 +84,39 @@ public static class Interfacing
         
     }
 
-    public static readonly Dictionary<string, string> _usaaHeaderMaps = new Dictionary<string, string>()
+    public static HomoginizedLine[] ReadCsvs(string[] fullFilePaths)
     {
-        { "Description", nameof(HomoginizedLine.Description) },
-        { "Amount", nameof(HomoginizedLine.Amount) },
-        { "Category", nameof(HomoginizedLine.Category) }
-    };
+        var result = Array.Empty<HomoginizedLine>();
+        foreach (var fullFilePath in fullFilePaths)
+        {
+            using (var parser = new TextFieldParser(fullFilePath))
+            {
+                parser.TextFieldType = FieldType.Delimited;
+                parser.SetDelimiters(",");
+
+                var headers = Array.Empty<string>();
+                var lines = Array.Empty<UsaaLine>();
+
+                var fields = parser.ReadFields();
+                foreach (string field in fields)
+                {
+                    headers = headers.Concat(new[] { field }).ToArray();
+                }
+
+                if (headers.Length == 6 && headers.Contains("Original Description") == true)
+                {
+                    var usaaResult = ReadUsaaCsv("", fullFilePath);
+                    result = result.Concat(usaaResult).ToArray();
+                }
+                else if (headers.Length == 4 && headers.Contains("Pending/posted") == true)
+                {
+                    var aspirationResult = ReadAspirationCsv(fullFilePath);
+                    result = result.Concat(aspirationResult).ToArray();
+                }
+            }
+        }
+        return result;
+    }
 
     public static HomoginizedLine[] ReadUsaaCsv(string dataDirectory, string fileName)
     {
@@ -159,76 +188,128 @@ public static class Interfacing
             {
                 double.TryParse(l.Amount, out var amount);
                 var yearMonth = "";
+                var transactionDate = (DateTime?)null;
                 if(DateTime.TryParse(l.Date, out var date) == true)
                 {
                     yearMonth = $"{date:yy-MM}";
+                    transactionDate = date;
                 }
 
-                return new HomoginizedLine()
+                
+
+                var homline = new HomoginizedLine()
                 {
                     Amount = amount,
                     Category = l.Category,
                     Description = l.Description,
-                    YearMonth = yearMonth
+                    YearMonth = yearMonth,
+                    TransactionDate = transactionDate,
+                    Source = "USAA"
                 };
+
+                homline = Transmorgrifying.Transmogrify(homline);
+
+                return homline;
             }).ToArray();
         }
         return result;
     }
 
-    public async static Task<HomoginizedLine[]> ReadCsv(string? dataDirectory, string fileName)
+    public static HomoginizedLine[] ReadAspirationCsv(string filePathName)
     {
-        string filePath = Path.Combine(dataDirectory, fileName);
         var result = Array.Empty<HomoginizedLine>();
-        try
+        using (var parser = new TextFieldParser(filePathName))
         {
-            using (var parser = new TextFieldParser(filePath))
+            parser.TextFieldType = FieldType.Delimited;
+            parser.SetDelimiters(",");
+
+            var first = true;
+            var headers = Array.Empty<string>();
+            var lines = Array.Empty<AspirationLine>();
+            while (parser.EndOfData == false)
             {
-                parser.TextFieldType = FieldType.Delimited;
-                parser.SetDelimiters(",");
+                var fields = parser.ReadFields();
 
-                var first = true;
-                var headers = Array.Empty<string>();
-                while (parser.EndOfData == false)
+                if (first == true)
                 {
-                    var fields = parser.ReadFields();
-                    if(fields == null)
+                    foreach (string field in fields)
                     {
-                        throw new Exception("null fields");
+                        headers = headers.Concat(new[] { field }).ToArray();
                     }
-
-                    if(first == true)
-                    {
-                        foreach (string field in fields)
-                        {
-                            headers = headers.Concat(new[] { field }).ToArray();   
-                        }
-                    }
-
+                    first = false;
+                }
+                else
+                {
                     if (fields != null)
                     {
-                        var homLine = new HomoginizedLine();
+                        var aspirationLine = new AspirationLine();
                         var i = 0;
                         foreach (string field in fields)
                         {
                             var thisHeader = headers[i];
-                            if (double.TryParse(field, out var amount) == true && thisHeader.ToLower().Contains("amount"))
+                            switch (thisHeader)
                             {
-                                homLine.Amount = amount;
+                                case "Transaction date":
+                                    aspirationLine.TransactionDate = field;
+                                    break;
+                                case nameof(AspirationLine.Description):
+                                    aspirationLine.Description = field;
+                                    break;
+                                case nameof(AspirationLine.Amount):
+                                    aspirationLine.Amount = field;
+                                    break;
+                                case "Pending/posted":
+                                    aspirationLine.PendingPosted = field;
+                                    break;
+                                default:
+                                    // Handle unexpected headers if needed
+                                    break;
                             }
+                            i++;
                         }
-                        Console.WriteLine();
+                        lines = lines.Concat(new[] { aspirationLine }).ToArray();
                     }
-
-                    first = false;
                 }
+
+
             }
+
+            result = lines.Select(l =>
+            {
+                double.TryParse(l.Amount, out var amount);
+                var yearMonth = "";
+                var transactionDate = (DateTime?)null;
+                try
+                {
+                    var exactDate = DateTime.ParseExact(l.TransactionDate, "MM/dd/yyyy", CultureInfo.InvariantCulture);
+                    yearMonth = $"{exactDate:yy-MM}";
+                    transactionDate = exactDate;
+                }
+                catch
+                {
+                    if (DateTime.TryParse(l.TransactionDate, out var date) == true)
+                    {
+                        yearMonth = $"{date:yy-MM}";
+                        transactionDate = date;
+                    }
+                }
+                
+
+                var homLine = new HomoginizedLine()
+                {
+                    Amount = amount,
+                    Description = l.Description,
+                    YearMonth = yearMonth,
+                    TransactionDate = transactionDate,
+                    Source = "Aspiration"
+                };
+
+                homLine = Transmorgrifying.Transmogrify(homLine);
+
+                return homLine;
+            }).ToArray();
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error reading file: {ex.Message}");
-        }
-        return await Task.FromResult(result);
+        return result;
     }
 }
 
@@ -241,11 +322,12 @@ public static class CsvWriter
         var filePath = Path.Combine(dataDirectory, fileName);
         using (StreamWriter writer = new StreamWriter(filePath))
         {
-            writer.WriteLine("YearMonth,Description,Category,Amount");
+            writer.WriteLine("YearMonth,Description,Category,Amount,Source");
 
             foreach (var line in lines)
             {
-                string csvLine = $"{EscapeCsvField(line.YearMonth)},{EscapeCsvField(line.Description)},{EscapeCsvField(line.Category)},{line.Amount}";
+                var monthName = $"{line.TransactionDate:MMM}";
+                string csvLine = $"=\"{EscapeCsvField(line.YearMonth)} ({monthName})\",{EscapeCsvField(line.Description)},{EscapeCsvField(line.Category)},{line.Amount},{line.Source}";
 
                 writer.WriteLine(csvLine);
             }
