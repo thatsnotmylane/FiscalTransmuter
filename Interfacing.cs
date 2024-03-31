@@ -19,6 +19,7 @@ public class HomoginizedLine
     public string? Category { get; set; }
     public double Amount { get; set; }
     public string? Source { get; set; }
+    public int TransmorgrifiedCount { get; set; }
 }
 
 
@@ -195,12 +196,12 @@ public static class Interfacing
                     transactionDate = date;
                 }
 
-                
+                var category = Transmorgrifying.MassageCategory(l.Category);
 
                 var homline = new HomoginizedLine()
                 {
                     Amount = amount,
-                    Category = l.Category,
+                    Category = category,
                     Description = l.Description,
                     YearMonth = yearMonth,
                     TransactionDate = transactionDate,
@@ -322,12 +323,12 @@ public static class CsvWriter
         var filePath = Path.Combine(dataDirectory, fileName);
         using (StreamWriter writer = new StreamWriter(filePath))
         {
-            writer.WriteLine("YearMonth,Description,Category,Amount,Source");
+            writer.WriteLine("YearMonth,Description,Category,Amount,Source,ChangeCount");
 
             foreach (var line in lines)
             {
                 var monthName = $"{line.TransactionDate:MMM}";
-                string csvLine = $"=\"{EscapeCsvField(line.YearMonth)} ({monthName})\",{EscapeCsvField(line.Description)},{EscapeCsvField(line.Category)},{line.Amount},{line.Source}";
+                string csvLine = $"=\"{EscapeCsvField(line.YearMonth)} ({monthName})\",{EscapeCsvField(line.Description)},{EscapeCsvField(line.Category)},{line.Amount},{line.Source},{line.TransmorgrifiedCount}";
 
                 writer.WriteLine(csvLine);
             }

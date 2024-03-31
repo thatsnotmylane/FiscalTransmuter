@@ -11,6 +11,7 @@ public static class Extensions
                 line.Description = description;
             }
             line.Category = category;
+            line.TransmorgrifiedCount++;
         }
     }
 }
