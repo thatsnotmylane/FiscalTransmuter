@@ -20,6 +20,8 @@ public class HomoginizedLine
     public double Amount { get; set; }
     public string? Source { get; set; }
     public int TransmorgrifiedCount { get; set; }
+    public bool IsChecking { get; set; }
+    public bool IsSavings { get; set; }
 }
 
 
@@ -39,6 +41,8 @@ public class AspirationLine
     public string? Description { get; set; }
     public string? Amount { get; set; }
     public string? PendingPosted { get; set; }
+    public bool IsChecking { get; set; }
+    public bool IsSavings { get; set; }
 }
 
 public static class Interfacing
@@ -121,6 +125,7 @@ public static class Interfacing
 
     public static HomoginizedLine[] ReadUsaaCsv(string dataDirectory, string fileName)
     {
+        var usaaDateofAmountSwitch = new DateTime(2024, 07, 01);
         string filePath = Path.Combine(dataDirectory, fileName);
         var result = Array.Empty<HomoginizedLine>();
         using (var parser = new TextFieldParser(filePath))
@@ -198,6 +203,12 @@ public static class Interfacing
 
                 var category = Transmorgrifying.MassageCategory(l.Category);
 
+                // fix amount because apparently they decide to change in July 2024?!?!?!??!?
+                if(date >= usaaDateofAmountSwitch)
+                {
+                    amount = amount * -1;
+                }
+
                 var homline = new HomoginizedLine()
                 {
                     Amount = amount,
@@ -218,6 +229,8 @@ public static class Interfacing
 
     public static HomoginizedLine[] ReadAspirationCsv(string filePathName)
     {
+        var isChecking = filePathName.ToLower().Contains("spend");
+        var isSavings = filePathName.ToLower().Contains("save");
         var result = Array.Empty<HomoginizedLine>();
         using (var parser = new TextFieldParser(filePathName))
         {
@@ -243,7 +256,11 @@ public static class Interfacing
                 {
                     if (fields != null)
                     {
-                        var aspirationLine = new AspirationLine();
+                        var aspirationLine = new AspirationLine()
+                        {
+                            IsChecking = isChecking,
+                            IsSavings = isSavings
+                        };
                         var i = 0;
                         foreach (string field in fields)
                         {
@@ -302,7 +319,9 @@ public static class Interfacing
                     Description = l.Description,
                     YearMonth = yearMonth,
                     TransactionDate = transactionDate,
-                    Source = "Aspiration"
+                    Source = $"Aspiration {(l.IsSavings ? "Savings" : "Checking")}",
+                    IsSavings = l.IsSavings,
+                    IsChecking = l.IsChecking
                 };
 
                 homLine = Transmorgrifying.Transmogrify(homLine);

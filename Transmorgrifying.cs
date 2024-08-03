@@ -49,7 +49,8 @@ public static class Transmorgrifying
             case "Rental Car & Taxi":
             case "Hotel":
                 return TRAVEL;
-
+            case "Credit Card Payment":
+                return TRANSFER;
             default:
                 return category;
         }
@@ -64,7 +65,14 @@ public static class Transmorgrifying
         line.Transmorgrify("Planted", null, CHARITY);
         line.Transmorgrify("Account Conv", null, TRANSFER);
         line.Transmorgrify("Ach Co Dept Revenue Costtaxrfd", "Colorado Tax Refund 2023", TAXES);
-        line.Transmorgrify("Education Brands Direct", "Community Brands Paycheck", INCOME);
+        if (line.IsChecking == true)
+        {
+            line.Transmorgrify("Education Brands Direct", "Community Brands Paycheck (Checking)", INCOME);
+        }
+        else if (line.IsSavings == true)
+        {
+            line.Transmorgrify("Education Brands Direct", "Community Brands Paycheck (Savings)", SAVINGS);
+        }
         line.Transmorgrify("Usaa Credit Card Payment", "Credit Card Usaa", TRANSFER);
         line.Transmorgrify("Rocket Mortgage", "Mortgage Payment", "Mortgage");
         line.Transmorgrify("Chase Credit Crd", "Credit Card Chase", TRANSFER);
@@ -139,6 +147,19 @@ public static class Transmorgrifying
         line.Transmorgrify("Vital Climbing Gym", null, HEALTH_AND_FITNESS);
         line.Transmorgrify("Timbers Tap House", null, EATING_OUT);
         line.Transmorgrify("USAA Insurance Payment", "USAA Insurance Payment (Car)", CARS);
+        line.Transmorgrify("2.23101E+11", "Credit Card Payment", TRANSFER);
+        line.Transmorgrify("2.23101E+11", "Credit Card Payment", TRANSFER);
+        line.Transmorgrify("223101140521", "Credit Card Payment", TRANSFER);
+        line.Transmorgrify("Reward Points Redemption", null, INCOME);
+        line.Transmorgrify("Idemia Tsa Precheck", "TSA Pre-Check", TRAVEL);
+        line.Transmorgrify("Rocky Mountain National", null, TRAVEL);
+        line.Transmorgrify("Brooksee Endurance Ev", "Revel Race", HEALTH_AND_FITNESS);
+        line.Transmorgrify("Fi ", "Google Fi", UTILITIES);
+        line.Transmorgrify("Vauxwall East London", null, HEALTH_AND_FITNESS);
+        line.Transmorgrify("Mile End Climbing Wall London", null, HEALTH_AND_FITNESS);
+        line.Transmorgrify("Daybreak Game Company", "MTGO", ENTERTAINMENT);
+        line.Transmorgrify("Benugo British Museum London", "High Tea British Museam", EATING_OUT);
+        line.Transmorgrify("Northern Colorado Womlyons", "Massage Tyrin", HEALTH_AND_FITNESS);
 
         return line;
     }
